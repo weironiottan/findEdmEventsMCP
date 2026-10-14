@@ -8,6 +8,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -41,8 +42,10 @@ func main() {
 		}
 	}
 
-	// stdout carries the MCP protocol in stdio mode, so log to stderr.
-	log.SetOutput(os.Stderr)
+	// stdout carries the MCP protocol in stdio mode, so log to stderr. The
+	// default logger is replaced too, so log.Printf output is JSON as well.
+	logger := server.NewCloudLogger(os.Stderr)
+	slog.SetDefault(logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -53,6 +56,7 @@ func main() {
 	}
 	defer closeStore()
 	srv := server.New(store)
+	srv.AddReceivingMiddleware(server.LogCalls(logger))
 
 	if *httpAddr != "" {
 		// Stateless so any instance can serve any request; the tools are

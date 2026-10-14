@@ -70,3 +70,14 @@ claude mcp add --transport http find-edm-events-remote $URL
 ```
 
 HTTP mode is stateless, so requests can land on any instance.
+
+## Debugging
+
+Every MCP request is logged to stderr as one JSON line with the method, tool,
+arguments, duration, and any error. Cloud Logging parses these into structured
+fields. Tool failures return HTTP 200 with `isError` set, so search the logs
+rather than relying on status codes:
+
+```sh
+gcloud logging read 'resource.labels.service_name="findedmeventsmcp-service" AND jsonPayload.isError=true' --limit 20
+```
