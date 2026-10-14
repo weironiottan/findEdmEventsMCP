@@ -1,0 +1,47 @@
+# Builds the container, pushes it to Artifact Registry, and deploys to Cloud Run.
+#
+#   gcloud builds submit --config cloudbuild.yaml
+#
+# Override defaults with --substitutions, e.g. _REGION=europe-north1.
+substitutions:
+  _REGION: us-central1
+  _SERVICE: find-edm-events-mcp
+  _REPO: containers
+  _RUNTIME_SA: find-edm-events-mcp
+  _MAX_INSTANCES: "3"
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
+      - --region=${_REGION}
+      - --port=8080
+      - --service-account=${_RUNTIME_SA}@${PROJECT_ID}.iam.gserviceaccount.com
+      - --allow-unauthenticated
+      # Rate limits are per instance, so this also caps total throughput and cost.
+      - --max-instances=${_MAX_INSTANCES}
+
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
