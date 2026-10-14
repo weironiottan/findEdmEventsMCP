@@ -2,7 +2,10 @@
 # Run by the Cloud Build trigger on pushes to main. To run it manually:
 #
 #   gcloud builds submit --config cloudbuild.yaml \
-#     --substitutions=REPO_NAME=findedmeventsmcp,COMMIT_SHA=$(git rev-parse HEAD)
+#     --substitutions=COMMIT_SHA=$(git rev-parse HEAD)
+#
+# Image names must be lowercase, so the path doesn't use $REPO_NAME
+# (the trigger sets it to "findEdmEventsMCP").
 #
 # Public access is a service setting (invoker IAM check disabled) and is
 # preserved across deploys, so it isn't set here.
@@ -11,7 +14,7 @@ substitutions:
   _REPO: cloud-run-source-deploy
   _SERVICE: findedmeventsmcp-service
   _MAX_INSTANCES: "3"
-  _IMAGE: ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${REPO_NAME}/${_SERVICE}:${COMMIT_SHA}
+  _IMAGE: ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/findedmeventsmcp/${_SERVICE}:${COMMIT_SHA}
 
 steps:
   - id: build
