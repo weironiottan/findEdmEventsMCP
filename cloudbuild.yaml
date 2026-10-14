@@ -1,29 +1,26 @@
 # Builds the container, pushes it to Artifact Registry, and deploys to Cloud Run.
+# Run by the Cloud Build trigger on pushes to main. To run it manually:
 #
-#   gcloud builds submit --config cloudbuild.yaml
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=REPO_NAME=findedmeventsmcp,COMMIT_SHA=$(git rev-parse HEAD)
 #
-# Override defaults with --substitutions, e.g. _REGION=europe-north1.
+# Public access is a service setting (invoker IAM check disabled) and is
+# preserved across deploys, so it isn't set here.
 substitutions:
   _REGION: us-central1
-  _SERVICE: find-edm-events-mcp
-  _REPO: containers
-  _RUNTIME_SA: find-edm-events-mcp
+  _REPO: cloud-run-source-deploy
+  _SERVICE: findedmeventsmcp-service
   _MAX_INSTANCES: "3"
+  _IMAGE: ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${REPO_NAME}/${_SERVICE}:${COMMIT_SHA}
 
 steps:
   - id: build
     name: gcr.io/cloud-builders/docker
-    args:
-      - build
-      - -t
-      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
-      - .
+    args: [build, -t, $_IMAGE, .]
 
   - id: push
     name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
+    args: [push, $_IMAGE]
 
   - id: deploy
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -32,16 +29,15 @@ steps:
       - run
       - deploy
       - ${_SERVICE}
-      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
+      - --image=${_IMAGE}
       - --region=${_REGION}
       - --port=8080
-      - --service-account=${_RUNTIME_SA}@${PROJECT_ID}.iam.gserviceaccount.com
-      - --allow-unauthenticated
       # Rate limits are per instance, so this also caps total throughput and cost.
       - --max-instances=${_MAX_INSTANCES}
 
 images:
-  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_SERVICE}:${BUILD_ID}
+  - $_IMAGE
 
 options:
+  dynamicSubstitutions: true
   logging: CLOUD_LOGGING_ONLY

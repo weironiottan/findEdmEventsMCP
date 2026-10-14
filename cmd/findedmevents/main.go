@@ -1,7 +1,7 @@
 // Command findedmevents runs the EDM Events MCP server.
 //
-// By default it speaks MCP over stdio. Pass -http to serve the streamable
-// HTTP transport instead, e.g. for a remote agent.
+// By default it speaks MCP over stdio. Pass -http (or set $PORT, as Cloud Run
+// does) to serve the streamable HTTP transport instead, e.g. for a remote agent.
 package main
 
 import (
@@ -32,6 +32,14 @@ func main() {
 	flag.StringVar(&cfg.DatabaseID, "database", envOr("FIRESTORE_DATABASE", "edm-events-database"), "Firestore database ($FIRESTORE_DATABASE)")
 	flag.StringVar(&cfg.Collection, "collection", envOr("FIRESTORE_COLLECTION", "edm-events"), "Firestore collection ($FIRESTORE_COLLECTION)")
 	flag.Parse()
+
+	// Cloud Run sets $PORT, and buildpack-built images start the binary
+	// without flags, so serve HTTP there when -http isn't given.
+	if *httpAddr == "" {
+		if port := os.Getenv("PORT"); port != "" {
+			*httpAddr = ":" + port
+		}
+	}
 
 	// stdout carries the MCP protocol in stdio mode, so log to stderr.
 	log.SetOutput(os.Stderr)
